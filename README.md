@@ -7,7 +7,6 @@
 ![Libraries.io dependency status for the latest release](https://img.shields.io/librariesio/release/hex/zoth)
 
 An Elixir library for adding OAuth 2.0 and OpenID provider capabilities to your Elixir app.
-This is based on the [ExOauth2Provider](https://github.com/danschultzer/ex_oauth2_provider) library by Dan Schultzer.
 
 Features include:
 
@@ -342,9 +341,7 @@ mix zoth.install --binary-id
 
 ## Acknowledgement
 
-This library was made thanks to [doorkeeper](https://github.com/doorkeeper-gem/doorkeeper), [guardian](https://github.com/ueberauth/guardian) and [authable](https://github.com/mustafaturan/authable), that gave the conceptual building blocks.
-
-Thanks to [Benjamin Schultzer](https://github.com/schultzer) for helping to refactor the code.
+The code in this library is based on the [ExOauth2Provider](https://github.com/danschultzer/ex_oauth2_provider) library by Dan Schultzer.
 
 ## LICENSE
 
