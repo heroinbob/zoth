@@ -1,0 +1,19 @@
+defmodule Zoth.Behaviours.SkipAuthorization do
+  @moduledoc """
+  Define the rules used to determine if authorization can be skipped. If your
+  app has unique criteria then implement it.
+
+  For example:
+
+  defmodule MyModule do
+    @behaviour Zoth.Behaviors.SkipAuthorization
+
+    def skip_authorization(user, application) do
+      user.super_cool? || application.trusted?
+    end
+  end
+  """
+  alias Zoth.Applications.Application
+
+  @callback skip_authorization?(user :: map(), application :: Application.t()) :: boolean()
+end

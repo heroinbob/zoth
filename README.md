@@ -1,0 +1,361 @@
+# Zoth
+
+[![Hex.pm](https://img.shields.io/hexpm/v/zoth)](https://hex.pm/packages/zoth)
+![GitHub](https://img.shields.io/github/license/heroinbob/zoth)
+[![CI](https://github.com/heroinbob/zoth/actions/workflows/main.yml/badge.svg)](https://github.com/heroinbob/zoth/actions/workflows/main.yml)
+[![Coverage Status](https://coveralls.io/repos/github/heroinbob/zoth/badge.svg?branch=main)](https://coveralls.io/github/heroinbob/zoth?branch=main)
+![Libraries.io dependency status for the latest release](https://img.shields.io/librariesio/release/hex/zoth)
+
+An Elixir library for adding OAuth 2.0 and OpenID provider capabilities to your Elixir app.
+This is based on the [ExOauth2Provider](https://github.com/danschultzer/ex_oauth2_provider) library by Dan Schultzer.
+
+Features include:
+
+- OAuth 2.0
+- Proof Key for Code Exchange (PKCE)
+- OpenID Connect 1.0
+
+## Installation
+
+Add Zoth to your list of dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    # ...
+    {:zoth, "~> 1.0.0"}
+    # ...
+  ]
+end
+```
+
+Run `mix deps.get` to install it.
+
+## Getting started
+
+Generate the migrations and schema modules:
+
+```bash
+mix zoth.install
+```
+
+Add the following to `config/config.ex`:
+
+```elixir
+config :my_app, Zoth,
+  repo: MyApp.Repo,
+  resource_owner: MyApp.Users.User
+```
+
+## Authorize code flow
+
+### Authorization request
+
+You have to ensure that a `resource_owner` has been authenticated on the following endpoints, and pass the struct as the first argument in the following methods.
+
+```elixir
+# GET /oauth/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=CALLBACK_URL&scope=read
+case Zoth.Authorization.preauthorize(resource_owner, params, otp_app: :my_app) do
+  {:ok, client, scopes}             -> # render authorization page
+  {:redirect, redirect_uri}         -> # redirect to external redirect_uri
+  {:native_redirect, %{code: code}} -> # redirect to local :show endpoint
+  {:error, error, http_status}      -> # render error page
+end
+
+# POST /oauth/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=CALLBACK_URL&scope=read
+Zoth.Authorization.authorize(resource_owner, params, otp_app: :my_app) do
+  {:redirect, redirect_uri}         -> # redirect to external redirect_uri
+  {:native_redirect, %{code: code}} -> # redirect to local :show endpoint
+  {:error, error, http_status}      -> # render error page
+end
+
+# DELETE /oauth/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=CALLBACK_URL&scope=read
+Zoth.Authorization.deny(resource_owner, params, otp_app: :my_app) do
+  {:redirect, redirect_uri}         -> # redirect to external redirect_uri
+  {:error, error, http_status}      -> # render error page
+end
+```
+
+### Authorization code grant
+
+```elixir
+# POST /oauth/token?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&grant_type=authorization_code&code=AUTHORIZATION_CODE&redirect_uri=CALLBACK_URL
+case Zoth.Token.grant(params, otp_app: :my_app) do
+  {:ok, access_token}               -> # JSON response
+  {:error, error, http_status}      -> # JSON response
+end
+```
+
+### Revocation
+
+```elixir
+# GET /oauth/revoke?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&token=ACCESS_TOKEN
+case Zoth.Token.revoke(params, otp_app: :my_app) do
+  {:ok, %{}}                        -> # JSON response
+  {:error, error, http_status}      -> # JSON response
+end
+```
+
+Revocation will return `{:ok, %{}}` status even if the token is invalid.
+
+### Proof Key for Code Exchange
+
+PKCE is supported and disabled by default. You can configure PKCE support for the application
+or you can manually specify PKCE support by passing configuration explicitly. You can also
+override the application config by passing configuration explicitly.
+
+The following values are supported:
+ * `:enabled` - PKCE is required for the authorization code flow and both plain and S256 are allowed.
+ * `:plain_only` - Same as `:enabled` except only plain challenges are allowed.
+ * `:s256_only` - Same as `:enabled` except only S256 challenges are allowed.
+ * `:disabled` - PKCE is disabled an the respective fields are ignored.
+
+ To configure for your application:
+
+```elixir
+config :my_app, Zoth, pkce: :enabled,
+```
+
+Or - specify manually in any call related to the flow:
+
+```elixir
+case Zoth.Authorization.preauthorize(resource_owner, params, otp_app: :my_app, pkce: :enabled) do
+   # handle as you see fit...
+end
+```
+
+You can refer to [RFC-7636](https://datatracker.ietf.org/doc/html/rfc7636) for more about PKCE
+
+In order to use PKCE you must add the fields to the access grants table. You can run the following
+mix task within your application which will generate the migration for you. If you have a custom
+table name the task supports this too.
+
+```
+mix zoth.add_pkce_fields -r MyApp.Repo
+
+mix zoth.add_pkce_fields -r MyApp.Repo --table my_custom_table_name
+```
+
+### Authorization code flow in a Single Page Application
+
+Zoth doesn't support **implicit** grant flow. Instead you should set up an application with no client secret, and use the **Authorize code** grant flow. `client_secret` isn't required unless it has been set for the application.
+
+### Other supported token grants
+
+#### Client credentials
+
+```elixir
+# POST /oauth/token?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&grant_type=client_credentials
+case Zoth.Token.grant(params, otp_app: :my_app) do
+  {:ok, access_token}               -> # JSON response
+  {:error, error, http_status}      -> # JSON response
+end
+```
+
+#### Refresh token
+
+Refresh tokens can be enabled in the configuration:
+
+```elixir
+config :my_app, Zoth,
+  repo: MyApp.Repo,
+  resource_owner: MyApp.Users.User,
+  use_refresh_token: true
+```
+
+The `refresh_token` grant flow will then be enabled.
+
+```elixir
+# POST /oauth/token?client_id=CLIENT_ID&client_secret=CLIENT_SECRET&grant_type=refresh_token&refresh_token=REFRESH_TOKEN
+case Zoth.Token.grant(params, otp_app: :my_app) do
+  {:ok, access_token}               -> # JSON response
+  {:error, error, http_status}      -> # JSON response
+end
+```
+
+#### Username and password
+
+You'll need to provide an authorization method that accepts username and password as arguments, and returns `{:ok, resource_owner}` or `{:error, reason}`. Here'a an example:
+
+```elixir
+# Configuration in config/config.exs
+config :my_app, Zoth,
+  password_auth: {Auth, :authenticate}
+
+# Module example
+defmodule Auth do
+  def authenticate(username, password, otp_app: :my_app) do
+    User
+    |> Repo.get_by(email: username)
+    |> verify_password(password)
+  end
+
+  defp verify_password(nil, password) do
+    check_pw("", password) # Prevent timing attack
+
+    {:error, :no_user_found}
+  end
+  defp verify_password(%{password_hash: password_hash} = user, password) do
+    case check_pw(password_hash, password) do
+      true  -> {:ok, user}
+      false -> {:error, :invalid_password}
+    end
+  end
+end
+```
+
+The `password` grant flow will then be enabled.
+
+```elixir
+# POST /oauth/token?client_id=CLIENT_ID&grant_type=password&username=USERNAME&password=PASSWORD
+case Zoth.Token.grant(params, otp_app: :my_app) do
+  {:ok, access_token}               -> # JSON response
+  {:error, error, http_status}      -> # JSON response
+end
+```
+
+## Scopes
+
+Server wide scopes can be defined in the configuration:
+
+```elixir
+config :my_app, Zoth,
+  repo: MyApp.Repo,
+  resource_owner: MyApp.Users.User,
+  default_scopes: ~w(public),
+  optional_scopes: ~w(read update)
+```
+
+## Plug API
+
+### [Zoth.Plug.VerifyHeader](lib/zoth/plug/verify_header.ex)
+
+Looks for a token in the Authorization Header. If one is not found, this does nothing. This will always be necessary to run to load access token and resource owner.
+
+### [Zoth.Plug.EnsureAuthenticated](lib/zoth/plug/ensure_authenticated.ex)
+
+Looks for a verified token loaded by [`VerifyHeader`](#exoauth2providerplugverifyheader). If one is not found it will call the `:unauthenticated` method in the `:handler` module.
+
+You can use a custom `:handler` as part of a pipeline, or inside a Phoenix controller like so:
+
+```elixir
+defmodule MyAppWeb.MyController do
+  use MyAppWeb, :controller
+
+  plug Zoth.Plug.EnsureAuthenticated,
+    handler: MyAppWeb.MyAuthErrorHandler
+end
+```
+
+ The `:handler` module always defaults to [Zoth.Plug.ErrorHandler](lib/zoth/plug/error_handler.ex).
+
+### [Zoth.Plug.EnsureScopes](lib/zoth/plug/ensure_scopes.ex)
+
+Looks for a previously verified token. If one is found, confirms that all listed scopes are present in the token. If not, the `:unauthorized` function is called on your `:handler`.
+
+```elixir
+defmodule MyAppWeb.MyController do
+  use MyAppWeb, :controller
+
+  plug Zoth.Plug.EnsureScopes,
+    handler: MyAppWeb.MyAuthErrorHandler, scopes: ~w(read write)
+end
+```
+
+When scopes' sets are specified through a `:one_of` map, the token is searched for at least one matching scopes set to allow the request. The first set that matches will allow the request. If no set matches, the `:unauthorized` function is called.
+
+```elixir
+defmodule MyAppWeb.MyController do
+  use MyAppWeb, :controller
+
+  plug Zoth.Plug.EnsureScopes,
+    handler: MyAppWeb.MyAuthErrorHandler,
+    one_of: [~w(admin), ~w(read write)]
+end
+```
+
+### Current resource owner and access token
+
+If the Authorization Header was verified, you'll be able to retrieve the current resource owner or access token.
+
+```elixir
+Zoth.Plug.current_access_token(conn) # access the token in the default location
+Zoth.Plug.current_access_token(conn, :secret) # access the token in the secret location
+```
+
+```elixir
+Zoth.Plug.current_resource_owner(conn) # Access the loaded resource owner in the default location
+Zoth.Plug.current_resource_owner(conn, :secret) # Access the loaded resource owner in the secret location
+```
+
+### Custom access token generator
+
+You can add your own access token generator, as this example shows:
+
+```elixir
+# config/config.exs
+config :my_app, Zoth,
+  access_token_generator: {AccessToken, :new}
+
+defmodule AccessToken
+  def new(access_token) do
+    with_signer(%JWT.token{
+      resource_owner_id: access_token.resource_owner_id,
+      application_id: access_token.application.id,
+      scopes: access_token.scopes,
+      expires_in: access_token.expires_in,
+      created_at: access_token.created_at
+    }, hs256("my_secret"))
+  end
+end
+```
+
+Remember to change the field type for the `token` column in the `oauth_access_tokens` table to accepts tokens larger than 255 characters.
+
+### Custom access token response body
+
+You can add extra values to the response body.
+
+```elixir
+# config/config.exs
+config :my_app, Zoth,
+  access_token_response_body_handler: {CustomResponse, :response}
+
+defmodule CustomResponse
+  def response(response_body, access_token) do
+    Map.merge(response_body, %{user_id: access_token.resource_owner.id})
+  end
+end
+```
+
+Remember to change the field type for the `token` column in the `oauth_access_tokens` table to accepts tokens larger than 255 characters.
+
+## Using binary id
+
+### Generate migration file with binary id
+
+You'll need to create the migration file and schema modules with the argument `--binary-id`:
+
+```bash
+mix zoth.install --binary-id
+```
+
+## Acknowledgement
+
+This library was made thanks to [doorkeeper](https://github.com/doorkeeper-gem/doorkeeper), [guardian](https://github.com/ueberauth/guardian) and [authable](https://github.com/mustafaturan/authable), that gave the conceptual building blocks.
+
+Thanks to [Benjamin Schultzer](https://github.com/schultzer) for helping to refactor the code.
+
+## LICENSE
+
+(The MIT License)
+
+Copyright (c) 2017-2019 Dan Schultzer & the Contributors
+
+Copyright (c) 2026 Jeff McKenzie
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

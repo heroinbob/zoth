@@ -1,0 +1,140 @@
+defmodule Zoth.Plug.VerifyHeaderTest do
+  @moduledoc false
+  use Zoth.ConnCase
+
+  alias Plug.Conn
+  alias Dummy.OauthAccessTokens.OauthAccessToken
+  alias Zoth.{Plug, Plug.VerifyHeader}
+  alias Zoth.Test.Fixtures
+
+  test "with no access token at a default location", %{conn: conn} do
+    opts = VerifyHeader.init(otp_app: :zoth)
+    conn = VerifyHeader.call(conn, opts)
+
+    refute Plug.authenticated?(conn)
+    assert Plug.current_access_token(conn) == nil
+  end
+
+  test "with no access token at a specified location", %{conn: conn} do
+    opts = VerifyHeader.init(otp_app: :zoth, key: :secret)
+    conn = VerifyHeader.call(conn, opts)
+
+    refute Plug.authenticated?(conn, :secret)
+    assert Plug.current_access_token(conn, :secret) == nil
+  end
+
+  describe "with valid access token" do
+    setup context do
+      access_token = Fixtures.insert(:access_token)
+
+      {:ok, Map.put(context, :access_token, access_token)}
+    end
+
+    test "at the default location", %{conn: conn, access_token: access_token} do
+      opts = VerifyHeader.init(otp_app: :zoth)
+
+      conn =
+        conn
+        |> Conn.put_req_header("authorization", access_token.token)
+        |> VerifyHeader.call(opts)
+
+      assert Plug.authenticated?(conn)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn)
+      assert id == access_token.id
+    end
+
+    test "at a specified location", %{conn: conn, access_token: access_token} do
+      opts = VerifyHeader.init(otp_app: :zoth, key: :secret)
+
+      conn =
+        conn
+        |> Conn.put_req_header("authorization", access_token.token)
+        |> VerifyHeader.call(opts)
+
+      assert Plug.authenticated?(conn, :secret)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn, :secret)
+      assert id == access_token.id
+    end
+
+    test "with a realm specified", %{conn: conn, access_token: access_token} do
+      opts = VerifyHeader.init(otp_app: :zoth, realm: "Bearer")
+
+      conn =
+        conn
+        |> Conn.put_req_header("authorization", "Bearer #{access_token.token}")
+        |> VerifyHeader.call(opts)
+
+      assert Plug.authenticated?(conn)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn)
+      assert id == access_token.id
+    end
+
+    test "with a realm specified and multiple auth headers", %{
+      conn: conn,
+      access_token: access_token
+    } do
+      another_access_token = Fixtures.insert(:access_token)
+
+      opts = VerifyHeader.init(otp_app: :zoth, realm: "Client")
+
+      conn =
+        conn
+        |> Conn.put_req_header("authorization", "Bearer #{access_token.token}")
+        |> Conn.put_req_header("authorization", "Client #{another_access_token.token}")
+        |> VerifyHeader.call(opts)
+
+      assert Plug.authenticated?(conn)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn)
+      assert id == another_access_token.id
+    end
+
+    test "pulls different tokens into different locations", %{
+      conn: conn,
+      access_token: access_token
+    } do
+      another_access_token = Fixtures.insert(:access_token)
+
+      req_headers = [
+        {"authorization", "Bearer #{access_token.token}"},
+        {"authorization", "Client #{another_access_token.token}"}
+      ]
+
+      opts_1 = VerifyHeader.init(otp_app: :zoth, realm: "Bearer")
+      opts_2 = VerifyHeader.init(otp_app: :zoth, realm: "Client", key: :client)
+
+      conn =
+        conn
+        |> Map.put(:req_headers, req_headers)
+        |> VerifyHeader.call(opts_1)
+        |> VerifyHeader.call(opts_2)
+
+      assert Plug.authenticated?(conn, :client)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn, :client)
+      assert id == another_access_token.id
+
+      assert Plug.authenticated?(conn)
+      assert %OauthAccessToken{id: id} = Plug.current_access_token(conn)
+      assert id == access_token.id
+    end
+
+    test "with custom authenticator configured", %{conn: conn, access_token: %{token: token}} do
+      authenticator = fn ^token, [authenticate_token_with: _, otp_app: :zoth] ->
+        {:ok, "expected-token"}
+      end
+
+      opts =
+        VerifyHeader.init(
+          authenticate_token_with: authenticator,
+          otp_app: :zoth
+        )
+
+      conn =
+        conn
+        |> Conn.put_req_header("authorization", token)
+        |> VerifyHeader.call(opts)
+
+      assert Plug.authenticated?(conn)
+      assert Plug.current_access_token(conn) == "expected-token"
+    end
+  end
+end

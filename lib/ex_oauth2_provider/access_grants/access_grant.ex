@@ -1,0 +1,152 @@
+defmodule Zoth.AccessGrants.AccessGrant do
+  @moduledoc """
+  Handles the Ecto schema for access grant.
+
+  ## Usage
+
+  Configure `lib/my_project/oauth_access_grants/oauth_access_grant.ex` the following way:
+
+      defmodule MyApp.OauthAccessGrants.OauthAccessGrant do
+        use Ecto.Schema
+        use Zoth.AccessGrants.AccessGrant
+
+        schema "oauth_access_grants" do
+          access_grant_fields()
+
+          timestamps()
+        end
+      end
+
+  ## PKCE
+
+  The PKCE columns are always `nil` regardless of whether or not the PKCE fields
+  are present in the data unless you explicitly enable PKCE with the `with: :pkce`
+  option.
+
+  This allows one to enable PKCE for an app via config or explicitly on a
+  request or endpoint basis.
+  """
+
+  alias Zoth.PKCE
+
+  @type t :: Ecto.Schema.t()
+
+  @doc false
+  def attrs() do
+    [
+      {:code_challenge, :string},
+      {:code_challenge_method, Ecto.Enum, [values: [:plain, :s256]]},
+      {:expires_in, :integer, null: false},
+      {:open_id_nonce, :string},
+      {:redirect_uri, :string, null: false},
+      {:revoked_at, :utc_datetime},
+      {:scopes, :string},
+      {:token, :string, null: false}
+    ]
+  end
+
+  @doc false
+  def assocs() do
+    [
+      {:belongs_to, :resource_owner, :users},
+      {:belongs_to, :application, :applications}
+    ]
+  end
+
+  def embeds, do: []
+
+  @doc false
+  def indexes() do
+    [
+      {:code_challenge, true},
+      {:open_id_nonce, true},
+      {:token, true}
+    ]
+  end
+
+  defmacro __using__(config) do
+    quote do
+      use Zoth.Schema, unquote(config)
+
+      import unquote(__MODULE__), only: [access_grant_fields: 0]
+    end
+  end
+
+  defmacro access_grant_fields do
+    quote do
+      Zoth.Schema.fields(unquote(__MODULE__))
+    end
+  end
+
+  alias Ecto.Changeset
+  alias Zoth.{Mixin.Scopes, Utils}
+
+  @doc """
+  Generate a validated changeset.
+  """
+  @spec changeset(
+          grant :: Ecto.Schema.t(),
+          params :: map(),
+          application :: Ecto.Schema.t(),
+          config :: keyword()
+        ) :: Changeset.t()
+  def changeset(grant, params, application, config) do
+    castable = castable_attrs(application, config)
+    required = required_attrs(application, config)
+    params = coerce_params(params)
+
+    grant
+    |> Changeset.cast(params, castable)
+    |> Changeset.assoc_constraint(:application)
+    |> Changeset.assoc_constraint(:resource_owner)
+    |> put_token()
+    |> Scopes.put_scopes(grant.application.scopes, config)
+    |> Scopes.validate_scopes(grant.application.scopes, config)
+    |> Changeset.validate_required(required)
+    |> Changeset.unique_constraint(:code_challenge)
+    |> Changeset.unique_constraint(:open_id_nonce)
+    |> Changeset.unique_constraint(:token)
+  end
+
+  @spec put_token(Ecto.Changeset.t()) :: Ecto.Changeset.t()
+  def put_token(changeset) do
+    Changeset.put_change(changeset, :token, Utils.generate_token())
+  end
+
+  defp coerce_params(%{code_challenge_method: method} = params) do
+    %{params | code_challenge_method: String.downcase(method)}
+  end
+
+  defp coerce_params(params), do: params
+
+  defp castable_attrs(application, config) do
+    castable = [
+      :expires_in,
+      :open_id_nonce,
+      :redirect_uri,
+      :scopes
+    ]
+
+    if PKCE.required?(application, config) do
+      [:code_challenge, :code_challenge_method] ++ castable
+    else
+      castable
+    end
+  end
+
+  defp required_attrs(application, config) do
+    castable = [
+      :application,
+      :expires_in,
+      :redirect_uri,
+      :resource_owner,
+      :token
+    ]
+
+    if PKCE.required?(application, config) do
+      [:code_challenge, :code_challenge_method] ++ castable
+    else
+      castable
+    end
+  end
+end

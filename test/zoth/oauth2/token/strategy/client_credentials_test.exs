@@ -1,0 +1,68 @@
+defmodule Zoth.Token.Strategy.ClientCredentialsTest do
+  use Zoth.TestCase
+
+  alias Zoth.{Config, Token}
+  alias Zoth.Test.{Fixtures, QueryHelpers}
+  alias Dummy.OauthAccessTokens.OauthAccessToken
+
+  @client_id "Jf5rM8hQBc"
+  @client_secret "secret"
+  @valid_request %{
+    "client_id" => @client_id,
+    "client_secret" => @client_secret,
+    "grant_type" => "client_credentials",
+    "scope" => "app:read"
+  }
+  @invalid_client_error %{
+    error: :invalid_client,
+    error_description:
+      "Client authentication failed due to unknown client, no client authentication included, or unsupported authentication method."
+  }
+
+  setup do
+    application =
+      Fixtures.insert(
+        :application,
+        uid: @client_id,
+        secret: @client_secret,
+        scopes: "app:read app:write"
+      )
+
+    {:ok, %{application: application}}
+  end
+
+  test "#grant/2 error when invalid client" do
+    request_invalid_client = Map.merge(@valid_request, %{"client_id" => "invalid"})
+
+    assert Token.grant(request_invalid_client, otp_app: :zoth) ==
+             {:error, @invalid_client_error, :unprocessable_entity}
+  end
+
+  test "#grant/2 error when invalid secret" do
+    request_invalid_client = Map.merge(@valid_request, %{"client_secret" => "invalid"})
+
+    assert Token.grant(request_invalid_client, otp_app: :zoth) ==
+             {:error, @invalid_client_error, :unprocessable_entity}
+  end
+
+  test "#grant/2 returns access token", %{application: application} do
+    assert {:ok, body} = Token.grant(@valid_request, otp_app: :zoth)
+    access_token = QueryHelpers.get_latest_inserted(OauthAccessToken)
+
+    assert body.access_token == access_token.token
+    assert is_nil(access_token.resource_owner_id)
+    assert access_token.application_id == application.id
+    assert access_token.scopes == "app:read"
+    assert access_token.expires_in == Config.access_token_expires_in(otp_app: :zoth)
+
+    # MUST NOT have refresh token
+    assert access_token.refresh_token == nil
+  end
+
+  test "returns error when token creation fails" do
+    # Use a non existent scope to trigger a failure in the changeset.
+    request = Map.put(@valid_request, "scope", "fail!")
+
+    assert {:error, _, :bad_request} = Token.grant(request, otp_app: :zoth)
+  end
+end
