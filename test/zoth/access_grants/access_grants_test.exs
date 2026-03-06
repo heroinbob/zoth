@@ -21,9 +21,7 @@ defmodule Zoth.AccessGrantsTest do
       AccessGrants.create_grant(user, application, @valid_attrs, otp_app: :zoth)
 
     assert %OauthAccessGrant{id: id} =
-             AccessGrants.get_active_grant_for(application, grant.token,
-               otp_app: :zoth
-             )
+             AccessGrants.get_active_grant_for(application, grant.token, otp_app: :zoth)
 
     assert id == grant.id
 
@@ -34,17 +32,13 @@ defmodule Zoth.AccessGrantsTest do
         uid: "2"
       )
 
-    refute AccessGrants.get_active_grant_for(different_application, grant.token,
-             otp_app: :zoth
-           )
+    refute AccessGrants.get_active_grant_for(different_application, grant.token, otp_app: :zoth)
   end
 
   describe "create_grant/4" do
     test "with valid attributes", %{user: user, application: application} do
       assert {:ok, %OauthAccessGrant{} = grant} =
-               AccessGrants.create_grant(user, application, @valid_attrs,
-                 otp_app: :zoth
-               )
+               AccessGrants.create_grant(user, application, @valid_attrs, otp_app: :zoth)
 
       assert grant.resource_owner == user
       assert grant.application == application

@@ -22,9 +22,7 @@ defmodule Zoth.AccessTokensTest do
 
   test "get_by_refresh_token/2", %{user: user} do
     assert {:ok, access_token} =
-             AccessTokens.create_token(user, %{use_refresh_token: true},
-               otp_app: :zoth
-             )
+             AccessTokens.create_token(user, %{use_refresh_token: true}, otp_app: :zoth)
 
     assert %OauthAccessToken{id: id} =
              AccessTokens.get_by_refresh_token(access_token.refresh_token,
@@ -146,9 +144,7 @@ defmodule Zoth.AccessTokensTest do
 
       assert id == access_token2.id
 
-      refute AccessTokens.get_token_for(Fixtures.insert(:user), nil, nil,
-               otp_app: :zoth
-             )
+      refute AccessTokens.get_token_for(Fixtures.insert(:user), nil, nil, otp_app: :zoth)
     end
 
     test "with application", %{user: user, application: application} do
@@ -226,9 +222,7 @@ defmodule Zoth.AccessTokensTest do
         AccessTokens.create_application_token(application, %{}, otp_app: :zoth)
 
       assert %OauthAccessToken{id: id} =
-               AccessTokens.get_application_token_for(application, nil,
-                 otp_app: :zoth
-               )
+               AccessTokens.get_application_token_for(application, nil, otp_app: :zoth)
 
       assert id == access_token2.id
 
@@ -363,9 +357,7 @@ defmodule Zoth.AccessTokensTest do
 
     test "with no scopes", %{user: user, application: application} do
       assert {:ok, access_token} =
-               AccessTokens.create_token(user, %{application: application},
-                 otp_app: :zoth
-               )
+               AccessTokens.create_token(user, %{application: application}, otp_app: :zoth)
 
       assert access_token.scopes == "public"
     end

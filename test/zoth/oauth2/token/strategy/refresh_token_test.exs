@@ -130,8 +130,7 @@ defmodule Zoth.Token.Strategy.RefreshTokenTest do
     assert {:ok, body} =
              RefreshToken.grant(valid_request,
                otp_app: :zoth,
-               access_token_response_body_handler:
-                 {__MODULE__, :access_token_response_body_handler}
+               access_token_response_body_handler: {__MODULE__, :access_token_response_body_handler}
              )
 
     access_token = Repo.get_by(OauthAccessToken, token: body.access_token)

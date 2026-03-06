@@ -130,8 +130,7 @@ defmodule Zoth.Token.Strategy.PasswordTest do
     assert {:ok, body} =
              Password.grant(@valid_request,
                otp_app: :zoth,
-               access_token_response_body_handler:
-                 {__MODULE__, :access_token_response_body_handler}
+               access_token_response_body_handler: {__MODULE__, :access_token_response_body_handler}
              )
 
     access_token = QueryHelpers.get_latest_inserted(OauthAccessToken)

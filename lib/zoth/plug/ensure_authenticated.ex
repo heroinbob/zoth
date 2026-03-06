@@ -36,6 +36,7 @@ defmodule Zoth.Plug.EnsureAuthenticated do
   end
 
   defp handle_authentication({:ok, _}, conn, _opts), do: conn
+
   defp handle_authentication({:error, reason}, %{params: params} = conn, opts) do
     params = Map.put(params, :reason, reason)
     module = Keyword.get(opts, :handler, Zoth.Plug.ErrorHandler)

@@ -6,6 +6,7 @@ defmodule Zoth.Test.Repo.Migrations.CreateUser do
       if System.get_env("UUID") do
         add :id, :binary_id, primary_key: true
       end
+
       add :email, :string
 
       timestamps()

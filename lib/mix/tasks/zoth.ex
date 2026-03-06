@@ -18,9 +18,9 @@ defmodule Mix.Tasks.Zoth do
 
   defp general do
     Application.ensure_all_started(:zoth)
-    Mix.shell.info "Zoth v#{Application.spec(:zoth, :vsn)}"
-    Mix.shell.info Application.spec(:zoth, :description)
-    Mix.shell.info "\nAvailable tasks:\n"
+    Mix.shell().info("Zoth v#{Application.spec(:zoth, :vsn)}")
+    Mix.shell().info(Application.spec(:zoth, :description))
+    Mix.shell().info("\nAvailable tasks:\n")
     Mix.Tasks.Help.run(["--search", "zoth."])
   end
 end

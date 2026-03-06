@@ -54,9 +54,7 @@ defmodule Zoth.ApplicationsTest do
       Applications.create_application(user, @valid_attrs, otp_app: :zoth)
 
     assert %OauthApplication{id: id} =
-             Applications.get_application_for!(user, application.uid,
-               otp_app: :zoth
-             )
+             Applications.get_application_for!(user, application.uid, otp_app: :zoth)
 
     assert id == application.id
 
@@ -74,14 +72,10 @@ defmodule Zoth.ApplicationsTest do
     application2 = Fixtures.insert(:application, uid: "newapp")
 
     assert {:ok, token} =
-             AccessTokens.create_token(user, %{application: application},
-               otp_app: :zoth
-             )
+             AccessTokens.create_token(user, %{application: application}, otp_app: :zoth)
 
     assert {:ok, _token} =
-             AccessTokens.create_token(user, %{application: application2},
-               otp_app: :zoth
-             )
+             AccessTokens.create_token(user, %{application: application2}, otp_app: :zoth)
 
     assert user
            |> Applications.get_authorized_applications_for(otp_app: :zoth)
@@ -185,9 +179,7 @@ defmodule Zoth.ApplicationsTest do
              Applications.create_application(user, @valid_attrs, otp_app: :zoth)
 
     assert {:ok, application} =
-             Applications.update_application(application, %{name: "Updated App"},
-               otp_app: :zoth
-             )
+             Applications.update_application(application, %{name: "Updated App"}, otp_app: :zoth)
 
     assert application.name == "Updated App"
   end
@@ -219,9 +211,7 @@ defmodule Zoth.ApplicationsTest do
     AccessTokens.revoke(token3)
 
     assert {:ok, objects} =
-             Applications.revoke_all_access_tokens_for(application, user,
-               otp_app: :zoth
-             )
+             Applications.revoke_all_access_tokens_for(application, user, otp_app: :zoth)
 
     assert Enum.count(objects) == 2
 
