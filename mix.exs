@@ -1,6 +1,7 @@
 defmodule Zoth.Mixfile do
   use Mix.Project
 
+  @repo_url "https://github.com/heroinbob/zoth"
   @version "1.0.0"
 
   def project do
@@ -16,6 +17,7 @@ defmodule Zoth.Mixfile do
         plt_add_apps: [:ex_unit, :mix],
         plt_file: {:no_warn, "plts/zoth.plt"}
       ],
+      test_coverage: [tool: ExCoveralls],
 
       # Hex
       description: "Elixir library for OAuth and OpenID providers",
@@ -46,9 +48,10 @@ defmodule Zoth.Mixfile do
       # Dev and test dependencies
       {:credo, "~> 1.7", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ecto_sql, "~> 3.13", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev},
       {:ex_machina, "~> 2.8.0", only: :test},
-      {:ecto_sql, "~> 3.13", only: [:dev, :test]},
+      {:excoveralls, "~> 0.18", only: [:dev, :test]},
       {:plug_cowboy, "~> 2.7", only: :test},
       {:postgrex, "~> 0.21", only: :test}
     ]
@@ -58,7 +61,7 @@ defmodule Zoth.Mixfile do
     [
       maintainers: ["Jeff McKenzie"],
       licenses: ["MIT"],
-      links: %{github: "https://github.com/heroinbob/zoth"},
+      links: %{github: @repo_url},
       files: ~w(lib LICENSE mix.exs README.md)
     ]
   end
@@ -68,7 +71,7 @@ defmodule Zoth.Mixfile do
       source_ref: "v#{@version}",
       main: "Zoth",
       canonical: "http://hexdocs.pm/zoth",
-      source_url: "https://github.com/heroinbob/zoth",
+      source_url: @repo_url,
       extras: ["README.md"]
     ]
   end
