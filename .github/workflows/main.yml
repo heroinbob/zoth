@@ -72,12 +72,8 @@ jobs:
         if: ${{ matrix.lint}}
 
       - name: Run tests
-        run: mix test.all
+        run: mix test
 
       - name: Report
         run: mix coveralls.github
         if: ${{ matrix.lint}}
-
-      - name: Dump Docker logs on failure
-        uses: jwalton/gh-docker-logs@v1
-        if: failure()
