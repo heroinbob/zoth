@@ -5,22 +5,34 @@ defmodule Mix.Tasks.Zoth.MigrationTask do
     Zoth.Migration
   }
 
-  def create_migration_file(%{
-        command_line_args: args,
-        context_name: context_name,
-        table: table,
-        template: template
-      }) do
-    repo = get_repo(args)
+  @doc """
+  Create a migration file.
 
-    content =
-      EEx.eval_string(
-        template,
-        context_name: context_name,
-        repo: repo,
-        table: table
+  ## Attributes
+
+  * `:command_line_args` - Required. The raw mix command line args.
+  * `:context_name` - Required. The name of the migration context/module
+  * `:template` - Required. The string template to generate the file using.
+  * `:assigns` - Optional. The assigns to use in the template.
+  """
+  def create_migration_file(
+        %{
+          command_line_args: args,
+          context_name: context_name,
+          template: template
+        } = attrs
+      ) do
+    repo = get_repo(args)
+    assigns = Map.get(attrs, :assigns, [])
+
+    assigns =
+      Enum.reduce(
+        [repo: repo],
+        assigns,
+        &[&1 | &2]
       )
 
+    content = EEx.eval_string(template, assigns)
     Migration.create_migration_file(repo, context_name, content)
   end
 

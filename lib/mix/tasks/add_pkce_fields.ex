@@ -4,11 +4,11 @@ defmodule Mix.Tasks.Zoth.AddPkceFields do
   @moduledoc """
   Generates a migration file that adds the PKCE columns to AccessGrants.
 
-      # Update the default table which is `oauth_access_grants`
+      # Update the default tables
       mix zoth.add_pkce_fields -r MyApp.Repo
 
-      # Update your custom table name
-      mix zoth.add_pkce_fields -r MyApp.Repo --table some_other_name
+      # Update the tables with custom names
+      mix zoth.add_pkce_fields -r MyApp.Repo --apps-table some_other_name --grants-table another_name
 
   This generator will add the oauth2 migration file in `priv/repo/migrations`.
 
@@ -23,15 +23,25 @@ defmodule Mix.Tasks.Zoth.AddPkceFields do
   ## Arguments
 
     * `-r`, `--repo` - the repo module
-    * `--table` - The name of the table to modify
+    * `--apps-table` - The name of the apps table
+    * `--grants-table` - The name of the grants table
   """
   use Mix.Task
 
   import Mix.Tasks.Zoth.MigrationTask
 
   @context_name "AddPkceFields"
-  @switches [table: :string]
-  @default_opts [table: "oauth_access_grants"]
+
+  @switches [
+    apps_table: :string,
+    grants_table: :string
+  ]
+
+  @default_opts [
+    apps_table: "oauth_applications",
+    grants_table: "oauth_access_grants"
+  ]
+
   @mix_task "zoth.add_pkce_fields"
 
   @template """
@@ -39,10 +49,16 @@ defmodule Mix.Tasks.Zoth.AddPkceFields do
     use Ecto.Migration
 
     def change do
-      alter table(:<%= table %>) do
+      alter table(:<%= apps_table %>) do
+        add :pkce, :string, null: false, default: "disabled"
+      end
+
+      alter table(:<%= grants_table %>) do
         add :code_challenge, :string
         add :code_challenge_method, :string
       end
+
+      create unique_index(:<%= grants_table %>, [:code_challenge])
     end
   end
   """
@@ -50,14 +66,14 @@ defmodule Mix.Tasks.Zoth.AddPkceFields do
   @impl true
   def run(args) do
     disallow_in_umbrella!(@mix_task)
+    params = parse_args(args, @switches, @default_opts)
+    assigns = params |> Map.take([:apps_table, :grants_table]) |> Enum.map(& &1)
 
-    args
-    |> parse_args(@switches, @default_opts)
-    |> Map.merge(%{
+    create_migration_file(%{
+      assigns: assigns,
       command_line_args: args,
       context_name: @context_name,
       template: @template
     })
-    |> create_migration_file()
   end
 end
