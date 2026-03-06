@@ -71,6 +71,11 @@ jobs:
         run: mix format --check-formatted
         if: ${{ matrix.lint}}
 
+      - name: Start Docker and wait for it to be up
+        run: |
+          docker compose up --build --detach
+          ./test/docker/health-check-services.sh
+
       - name: Run tests
         run: mix test
 
