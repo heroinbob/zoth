@@ -115,11 +115,18 @@ defmodule Zoth.Token.Revoke do
   defp validate_permissions({:ok, %{access_token: %{application_id: _id}} = params}),
     do: validate_ownership({:ok, params})
 
-  defp validate_ownership(
-         {:ok,
-          %{access_token: %{application_id: application_id}, client: %{id: client_id}} = params}
-       )
-       when application_id == client_id, do: {:ok, params}
+  defp validate_ownership({
+         :ok,
+         %{
+           access_token: %{
+             application_id: application_id
+           },
+           client: %{id: client_id}
+         } = params
+       })
+       when application_id == client_id do
+    {:ok, params}
+  end
 
   defp validate_ownership({:ok, params}),
     do: Error.add_error({:ok, params}, Error.invalid_request())
