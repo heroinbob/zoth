@@ -132,7 +132,130 @@ table name the task supports this too.
 ```
 mix zoth.add_pkce_fields -r MyApp.Repo
 
-mix zoth.add_pkce_fields -r MyApp.Repo --table my_custom_table_name
+mix zoth.add_pkce_fields -r MyApp.Repo --apps-table my_custom_table_name
+```
+
+### OpenID in Authorization Code Flow
+
+OpenID can be enabled depending on your needs. It currently is configurable
+at the application level and relies on scopes. The `claims` request param
+is not supported yet. In order to enable OpenID for an application you must
+do at least the following:
+
+#### Generate and run the migration to add the OpenID fields in the database.
+
+If you're codebase relies on a prior version of ExOauth2Provider or Zoth and
+your tables do not already have the OpenID fields then you can generate the
+migration with the following command. It also supports custom table names
+so if you have different names for your apps and/or grants tables you can
+specify those in the command args.
+
+```
+mix zoth.add_open_id_fields -r MyApp.Repo
+```
+
+#### Add the openid scope to your application(s)
+
+When you create your app you must define `openid` along with any other scopes
+that you need. If your app already exists then you must add it.
+
+#### Define your configuration
+
+Your implementation of OpenID must be defined in your apps configuration. You
+specify the configuration under the `open_id` key at the base level.
+
+At a minimum you must specify:
+
+* id_token_issuer
+* id_token_signing_key_algorithm
+* id_token_signing_key_pem
+
+Optionally you can also specify:
+
+* claims
+* id_token_lifespan
+* id_token_signing_key_id
+
+```elixir
+config :my_app, ExOauth2Provider,
+open_id: %{
+  claims: [
+    %{
+      name: :email,
+      includes: [%{name: :email_verified}]
+    }
+  ],
+  id_token_issuer: "https://my-app.com",
+  id_token_signing_key_algorithm: "RS256",
+  id_token_signing_key_id: "abc123",
+  id_token_signing_key_pem: File.read!("/path/to/my/file.pem")
+}
+```
+
+#### Claims
+
+The identity token returned contains the minimum required claims to support
+OpenID. If there are addional claims you wish to support then you must define
+them in your config and as scopes.
+
+When you define claims in the config this makes them available for use. However
+that claim must also have been present as a scope when grant was created in order
+for it to be included in the identity token.
+
+* Update (or create) your application(S) with the scopes needed to support the claims.
+* Add the claims in the app config.
+* The claim name must match the scope name.
+
+By default the claim value is derived from the resource owner struct. If the struct
+has an attribute with the same name then the value is used.
+
+If the case your struct has the attributed named differently than the claim then
+you can use the `alias` option. This means that the value will be derived from
+the resource owner struct using the `alias` rather than the `name`.
+
+```elixir
+# Return the work_email_address value from the resource owner struct for the
+# email claim.
+open_id: %{
+  claims: [
+    %{
+      name: :email,
+      alias: :work_email_address
+    }
+  ],
+```
+
+You can also provide a default value in case a resource owner struct does not
+have the attribute. For example, in an app that uses different structs as
+resource owners but some of those structs do not have the attribute. You can
+define a default for that.
+
+```elixir
+open_id: %{
+  claims: [
+    %{
+      name: :email,
+      value_when_missing: "N/A"
+    }
+  ],
+```
+
+Sometimes it's nice to be able to perform a runtime calculation to determine
+what the claim value should be. You can do this using the `transformer` option.
+
+```elixir
+open_id: %{
+  claims: [
+    %{
+      name: :age,
+      transformer: fn source ->
+        case source do
+          %{age: nil} -> "unknown"
+          %{age: age} -> age
+        end
+      end
+    }
+  ],
 ```
 
 ### Authorization code flow in a Single Page Application
