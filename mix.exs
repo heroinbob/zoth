@@ -2,7 +2,7 @@ defmodule Zoth.Mixfile do
   use Mix.Project
 
   @repo_url "https://github.com/heroinbob/zoth"
-  @version "1.0.0"
+  @version "1.0.1"
 
   def project do
     [
