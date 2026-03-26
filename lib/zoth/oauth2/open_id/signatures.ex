@@ -24,7 +24,8 @@ defmodule Zoth.OpenId.Signatures do
 
     compact_jws
   rescue
-    error -> raise SigningError.new(error)
+    # use reraise to preserve stacktrace.
+    error -> reraise SigningError.new(error), __STACKTRACE__
   end
 
   defp build_signing_header(algorithm, key_id) do
