@@ -94,11 +94,10 @@ defmodule Zoth.OpenId.IdToken do
              id_token_issuer: issuer,
              id_token_lifespan: lifespan
            },
-           token: token,
            user: user
          } = _context
        ) do
-    created_at = Chrono.to_unix(token.inserted_at)
+    created_at = Chrono.to_unix(DateTime.utc_now())
     expires_at = created_at + lifespan
 
     %{

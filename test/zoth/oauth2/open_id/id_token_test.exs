@@ -9,11 +9,16 @@ defmodule Zoth.OpenId.IdTokenTest do
 
   describe "new/3 when given an access token" do
     test "returns an ID token" do
-      %{application: %{uid: client_id} = app} = token = Fixtures.insert(:access_token)
-      iss = "id-token-iss"
+      # Make the access token older so we can assert that the issue time
+      # is based on now rather than it's creation time.
+      %{application: %{uid: client_id} = app} =
+        token =
+        Fixtures.insert(
+          :access_token,
+          inserted_at: DateTime.add(DateTime.utc_now(), -1, :day)
+        )
 
-      # The timestamps in this test are NaiveDateTime per the schema and DB table
-      assert %NaiveDateTime{} = token.inserted_at
+      iss = "id-token-iss"
 
       request_context = Fixtures.token_request_context(%{client: app})
 
@@ -44,36 +49,6 @@ defmodule Zoth.OpenId.IdTokenTest do
 
       assert issued_at == auth_time
       assert user_id == token.resource_owner.id
-    end
-
-    test "supports DateTime timestamps" do
-      # Our test schemas and DB yield naive datetime structs. Others may
-      # use unix timestamps which yield DateTime structs.
-      token =
-        :access_token
-        |> Fixtures.insert(expires_in: 100)
-        |> Map.put(:inserted_at, DateTime.utc_now())
-
-      request_context = Fixtures.token_request_context()
-
-      add_open_id_changes(%{
-        id_token_issuer: "id-token-iss",
-        id_token_lifespan: 100
-      })
-
-      assert %{
-               auth_time: auth_time,
-               exp: expires_at,
-               iat: issued_at
-             } = IdToken.new(token, request_context, [])
-
-      now = DateTime.to_unix(token.inserted_at)
-
-      # To keep this from being flaky make sure that the time is within a few
-      # seconds of now.
-      assert auth_time in now..(now + 3)
-      assert expires_at == auth_time + 100
-      assert issued_at == auth_time
     end
 
     test "adds additional claims when in scope and configured" do
