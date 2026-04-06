@@ -166,6 +166,40 @@ defmodule Zoth.Authorization.CodeTest do
                }
              } = Authorization.preauthorize(app.owner, request, @config)
     end
+
+    test "it returns an invalid request when the grant already exists" do
+      app = Fixtures.insert(:application, scopes: "openid test")
+      nonce = "ima-cute-lil-nonce"
+
+      # Insert a grant using the request data so we can test a duplicate request
+      # for an existing grant.
+      Fixtures.insert(
+        :access_grant,
+        application: app,
+        open_id_nonce: nonce,
+        resource_owner: app.owner
+      )
+
+      # Issue the existing access token too so it causes the grant to be re-issued.
+      Fixtures.insert(
+        :access_token,
+        application: app,
+        resource_owner: app.owner,
+        scopes: app.scopes
+      )
+
+      request =
+        Map.merge(
+          @valid_request,
+          %{"client_id" => app.uid, "nonce" => nonce, "scope" => app.scopes}
+        )
+
+      assert Authorization.preauthorize(
+               app.owner,
+               request,
+               @config
+             ) == {:error, @invalid_request, :bad_request}
+    end
   end
 
   describe "#preauthorize/3 when application has no scope" do
@@ -333,7 +367,7 @@ defmodule Zoth.Authorization.CodeTest do
                Authorization.preauthorize(
                  resource_owner,
                  request,
-                 [{:use_pkce, true} | @config]
+                 [{:pkce, :s256_only} | @config]
                )
 
       # Ensure that when the client supports PKCE it's being passed in correctly.
@@ -366,6 +400,46 @@ defmodule Zoth.Authorization.CodeTest do
                resource_owner,
                request,
                [{:pkce, :all_methods} | @config]
+             ) == {:error, @invalid_request, :bad_request}
+    end
+
+    test "it returns an invalid request when the grant already exists", %{
+      resource_owner: resource_owner,
+      application: application
+    } do
+      challenge = PKCE.generate_code_challenge()
+
+      request =
+        Map.merge(
+          @valid_request,
+          %{
+            "code_challenge" => challenge,
+            "code_challenge_method" => "S256"
+          }
+        )
+
+      # Insert a grant using the request data so we can test a duplicate request
+      # for an existing grant.
+      Fixtures.insert(
+        :access_grant,
+        application: application,
+        code_challenge: challenge,
+        code_challenge_method: :s256,
+        resource_owner: resource_owner
+      )
+
+      # Issue the existing access token too so it causes the grant to be re-issued.
+      Fixtures.insert(
+        :access_token,
+        application: application,
+        resource_owner: resource_owner,
+        scopes: application.scopes
+      )
+
+      assert Authorization.preauthorize(
+               resource_owner,
+               request,
+               [{:pkce, :s256_only} | @config]
              ) == {:error, @invalid_request, :bad_request}
     end
   end

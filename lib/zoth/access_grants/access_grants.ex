@@ -42,7 +42,7 @@ defmodule Zoth.AccessGrants do
 
   """
   @spec create_grant(Ecto.Schema.t(), Application.t(), map(), keyword()) ::
-          {:ok, AccessGrant.t()} | {:error, term()}
+          {:ok, AccessGrant.t()} | {:error, Ecto.Changeset.t()}
   def create_grant(resource_owner, application, attrs, config \\ []) do
     config
     |> Config.access_grant()

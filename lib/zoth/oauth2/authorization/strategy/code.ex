@@ -197,6 +197,11 @@ defmodule Zoth.Authorization.Code do
       {:ok, grant} ->
         {:ok, Map.put(context, :grant, grant)}
 
+      {:error, %Ecto.Changeset{}} ->
+        # grants can fail when a grant already exists with the given nonce or
+        # PKCE info (they must be unique).
+        Error.add_error({:ok, context}, Error.invalid_request())
+
       {:error, error} ->
         Error.add_error({:ok, context}, error)
     end
