@@ -19,6 +19,8 @@ defmodule Zoth.Token.AuthorizationCode do
           request: map()
         }
 
+  @invalid_grant Error.invalid_grant()
+
   defdelegate repo(config), to: Config
 
   @doc """
@@ -54,7 +56,7 @@ defmodule Zoth.Token.AuthorizationCode do
       {:ok, context}
     else
       # RFC states you must return an invalid grant error.
-      Error.add_error({:ok, context}, Error.invalid_grant())
+      Error.add_error({:ok, context}, @invalid_grant)
     end
   end
 
@@ -76,6 +78,8 @@ defmodule Zoth.Token.AuthorizationCode do
     case result do
       {:ok, {:error, error}} -> Error.add_error({:ok, params}, error)
       {:ok, {:ok, access_token}} -> {:ok, Map.put(params, :access_token, access_token)}
+      # Treat rollbacks (invalid inserts) as invalid grant errors.
+      {:error, :rollback} -> Error.add_error({:ok, params}, @invalid_grant)
       {:error, error} -> Error.add_error({:ok, params}, error)
     end
   end
@@ -111,13 +115,13 @@ defmodule Zoth.Token.AuthorizationCode do
     |> repo(config).preload(:resource_owner)
     |> repo(config).preload(:application)
     |> case do
-      nil -> Error.add_error({:ok, params}, Error.invalid_grant())
+      nil -> Error.add_error({:ok, params}, @invalid_grant)
       access_grant -> {:ok, Map.put(params, :access_grant, access_grant)}
     end
   end
 
   defp load_active_access_grant({:ok, params}, _config),
-    do: Error.add_error({:ok, params}, Error.invalid_grant())
+    do: Error.add_error({:ok, params}, @invalid_grant)
 
   defp load_active_access_grant({:error, error}, _config), do: {:error, error}
 end

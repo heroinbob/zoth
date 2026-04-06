@@ -13,7 +13,12 @@ defmodule Zoth.Token.Strategy.AuthorizationCodeTest do
     AccessGrants
   }
 
-  alias Zoth.Test.{Fixtures, PKCE, QueryHelpers}
+  alias Zoth.Test.{
+    Fixtures,
+    PKCE,
+    QueryHelpers,
+    TokenGenerator
+  }
 
   @client_id "Jf5rM8hQBc"
   @client_secret "secret"
@@ -217,6 +222,17 @@ defmodule Zoth.Token.Strategy.AuthorizationCodeTest do
 
       assert Token.grant(request_invalid_redirect_uri, otp_app: :zoth) ==
                {:error, @invalid_grant, :unprocessable_entity}
+    end
+
+    test "returns an error when creation fails" do
+      # Our token generator will use this token. This must be unique so this forces a changeset error.
+      Fixtures.insert(:access_token, token: "abc123")
+
+      assert Token.grant(
+               @valid_request,
+               access_token_generator: {TokenGenerator, :generate},
+               otp_app: :zoth
+             ) == {:error, @invalid_grant, :unprocessable_entity}
     end
   end
 

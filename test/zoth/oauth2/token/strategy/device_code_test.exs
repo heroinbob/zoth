@@ -5,7 +5,7 @@ defmodule Zoth.Token.DeviceCodeTest do
   alias Dummy.OauthAccessTokens.OauthAccessToken
   alias Zoth.{Config, Token}
   alias Zoth.AccessTokens
-  alias Zoth.Test.{Fixtures, QueryHelpers}
+  alias Zoth.Test.{Fixtures, QueryHelpers, TokenGenerator}
 
   @config [otp_app: :zoth]
 
@@ -506,6 +506,34 @@ defmodule Zoth.Token.DeviceCodeTest do
 
       refute expired_token.token == payload.access_token
       assert QueryHelpers.count(OauthAccessToken) == 2
+    end
+  end
+
+  describe "#grant/2 when token creation fails" do
+    test "it returns an error", context do
+      %{application: application, grant: grant} = context
+
+      # Be sure it exists under a different user/app just to force failure.
+      Fixtures.insert(:access_token, token: "abc123")
+
+      request = %{
+        "client_id" => application.uid,
+        "device_code" => grant.device_code,
+        "grant_type" => "urn:ietf:params:oauth:grant-type:device_code"
+      }
+
+      # Force the token to be the same as already existing to force a changeset error
+      assert {
+               :error,
+               %{error: :invalid_grant},
+               :unprocessable_entity
+             } =
+               Token.grant(
+                 request,
+                 [
+                   {:access_token_generator, {TokenGenerator, :generate}} | @config
+                 ]
+               )
     end
   end
 end

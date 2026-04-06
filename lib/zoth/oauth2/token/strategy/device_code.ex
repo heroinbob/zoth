@@ -53,6 +53,7 @@ defmodule Zoth.Token.DeviceCode do
     case result do
       {:ok, {:error, error}} -> Error.add_error({:ok, context}, error)
       {:ok, {:ok, access_token}} -> {:ok, Map.put(context, :access_token, access_token)}
+      {:error, :rollback} -> Error.invalid_grant()
       {:error, error} -> Error.add_error({:ok, context}, error)
     end
   end
