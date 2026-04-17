@@ -201,9 +201,6 @@ defmodule Zoth.Authorization.Code do
         # grants can fail when a grant already exists with the given nonce or
         # PKCE info (they must be unique).
         Error.add_error({:ok, context}, Error.invalid_request())
-
-      {:error, error} ->
-        Error.add_error({:ok, context}, error)
     end
   end
 
