@@ -19,6 +19,34 @@ defmodule Zoth.ChronoTest do
     end
   end
 
+  describe "expired?/2" do
+    test "returns true when the given value + TTL is in the future" do
+      value = DateTime.add(DateTime.utc_now(), -5, :second)
+
+      for ttl <- 1..4 do
+        result = Chrono.expired?(value, ttl)
+
+        assert result == false, "expected ttl #{ttl} to cause a false response but got #{result}"
+      end
+
+      # A 2 second window is plenty accurate for our test purposes.
+      assert Chrono.expired?(value, 7) == true
+    end
+
+    test "supports NaiveDateTime structs" do
+      value = NaiveDateTime.add(NaiveDateTime.utc_now(), -5, :second)
+
+      for ttl <- 1..4 do
+        result = Chrono.expired?(value, ttl)
+
+        assert result == false, "expected ttl #{ttl} to cause a false response but got #{result}"
+      end
+
+      # A 2 second window is plenty accurate for our test purposes.
+      assert Chrono.expired?(value, 7) == true
+    end
+  end
+
   describe "to_unix/2" do
     test "converts a DateTime struct" do
       assert Chrono.to_unix(~U[2026-01-14 16:53:00Z]) == 1_768_409_580

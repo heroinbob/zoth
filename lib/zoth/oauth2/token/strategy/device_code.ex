@@ -1,5 +1,11 @@
 defmodule Zoth.Token.DeviceCode do
-  alias Zoth.{AccessTokens, Config, DeviceGrants}
+  alias Zoth.{
+    AccessTokens,
+    Config,
+    Chrono,
+    DeviceGrants
+  }
+
   alias Zoth.Token.Utils
   alias Zoth.Utils.{Error, Validation}
 
@@ -71,14 +77,9 @@ defmodule Zoth.Token.DeviceCode do
   defp check_authorization(error_response), do: error_response
 
   defp check_expiration({:ok, %{config: config, grant: grant} = context}) do
-    too_old =
-      DateTime.utc_now()
-      |> DateTime.add(-grant.expires_in, :second)
-      |> DateTime.truncate(:second)
-
-    inserted_at = DateTime.from_naive!(grant.inserted_at, "Etc/UTC")
-
-    case inserted_at > too_old do
+    # Safely check the time. The column can be a DateTime or NaiveDateTime.
+    # expires_in is the ttl for the grant.
+    case Chrono.expired?(grant.inserted_at, grant.expires_in) do
       false ->
         DeviceGrants.delete!(grant, config)
         {:error, %{error: :expired_token}, :bad_request}
