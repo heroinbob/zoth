@@ -22,7 +22,7 @@ Add Zoth to your list of dependencies in `mix.exs`:
 def deps do
   [
     # ...
-    {:zoth, "~> 1.0.1"}
+    {:zoth, "~> 1.0.3"}
     # ...
   ]
 end
